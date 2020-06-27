@@ -28,6 +28,7 @@ void PortF_Init(void) {
 }
 
 struct State {
+    uint8_t cState;
     uint8_t out;
     uint8_t next[2];
 };
@@ -35,14 +36,20 @@ struct State {
 typedef const struct State State_t;
 
 State_t Fsm[4] = {
-    {0x04, {1, 3} },
-    {0x08, {2, 0} },
-    {0x10, {3, 1} },
-    {0x20, {0, 2} }
+    {0, 0x04, {1, 3} },
+    {1, 0x08, {2, 0} },
+    {2, 0x10, {3, 1} },
+    {3, 0x20, {0, 2} }
 };
 
 void delayT(int maxCount) {
     for (volatile int j = 0; j < maxCount; j++) {continue;}
+}
+
+uint8_t stepOnce(uint8_t direction, uint8_t cState) {
+    cState = Fsm[cState].next[direction];
+    *GPIO_PORTA_DATA_R = Fsm[cState].out;
+    return cState;
 }
 
 int main() {
@@ -52,9 +59,8 @@ int main() {
     uint8_t cState = 0;
     uint8_t input = 0x01;
     uint8_t flag = 0x01;
-    while(1) {
-        *GPIO_PORTA_DATA_R = Fsm[cState].out;
 
+    while(1) {
         // Debounce
         if (*GPIO_PORTF_DATA_R == 16) { // switch unpressed
             delayT(1000);
@@ -67,7 +73,7 @@ int main() {
         }
 
         delayT(10000);
-        cState = Fsm[cState].next[input];
+        cState = stepOnce(input, cState);
     }
 
     return 0;
