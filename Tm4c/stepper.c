@@ -52,26 +52,31 @@ uint8_t stepOnce(uint8_t direction, uint8_t cState) {
     return cState;
 }
 
+void debounce(uint8_t* input, uint8_t* flag) {
+    if (*GPIO_PORTF_DATA_R == 16) { // switch unpressed
+            delayT(1000);
+            if (*GPIO_PORTF_DATA_R == 16 && *flag == 0) {
+                *input = (~(*input))&0x01; // invert input
+                *flag = 1;
+            }
+    } else {
+        *flag = 0;
+    }
+}
+
 int main() {
     PortA_Init();
     PortF_Init();
 
     uint8_t cState = 0;
-    uint8_t input = 0x01;
-    uint8_t flag = 0x01;
+    uint8_t* input;
+    *input = 0x01;
+    uint8_t* flag;
+    *flag = 0x01;
 
     while(1) {
         // Debounce
-        if (*GPIO_PORTF_DATA_R == 16) { // switch unpressed
-            delayT(1000);
-            if (*GPIO_PORTF_DATA_R == 16 && flag == 0) {
-                input = ~input&0x01;
-                flag = 1;
-            }
-        } else {
-            flag = 0;
-        }
-
+        debounce(input, flag);
         delayT(10000);
         cState = stepOnce(input, cState);
     }
