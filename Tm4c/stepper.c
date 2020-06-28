@@ -1,19 +1,10 @@
 #include <stdint.h>
+#include "stepper.h"
 
-uint32_t *SYSCTL_RCGCGPIO_R = (uint32_t*) (0x400FE000 + 0x608); // Run-mode clock gating control
-uint32_t *GPIO_PORTA_DIR_R = (uint32_t*) (0x40004000 + 0x400); // Port A direction
-uint32_t *GPIO_PORTA_DEN_R = (uint32_t*) (0x40004000 + 0x51C); // Port A Digital Enable
-uint32_t *GPIO_PORTA_DATA_R = (uint32_t*) (0x40004000 + 0xF0); // Port A Data for Pins PA2-PA5
-
-uint32_t *GPIO_PORTF_DIR_R = (uint32_t*) (0x40025000 + 0x400); // Port F direction
-uint32_t *GPIO_PORTF_DEN_R = (uint32_t*) (0x40025000 + 0x51C); // Port F Digital Enable
-uint32_t *GPIO_PORTF_DATA_R = (uint32_t*) (0x40025000 + 0x40); // Port F Data for Pin PF0 (sw2)
-uint32_t *GPIO_PORTF_PUR_R = (uint32_t*) (0x40025000 + 0x510);
-
-void PortA_Init(void){ 
+void PortA_Init(void) { 
   volatile uint32_t delay;
   *SYSCTL_RCGCGPIO_R |= 0x01;       // activate Port A
-  delay = SYSCTL_RCGCGPIO_R;        // allow time for clock to stabilize
+  delay = *SYSCTL_RCGCGPIO_R;        // allow time for clock to stabilize
   *GPIO_PORTA_DIR_R |= 0x3C;        // make PA5-2 out
   *GPIO_PORTA_DEN_R |= 0x3C;        // enable digital I/O on PE1-0
 }
@@ -21,7 +12,7 @@ void PortA_Init(void){
 void PortF_Init(void) {
     volatile uint32_t delay;
     *SYSCTL_RCGCGPIO_R |= 0x20;       // activate Port F
-    delay = SYSCTL_RCGCGPIO_R;        // allow time for clock to stabilize
+    delay = *SYSCTL_RCGCGPIO_R;        // allow time for clock to stabilize
     *GPIO_PORTF_DIR_R &= ~0x10;       // make PF4 in
     *GPIO_PORTF_DEN_R |= 0x10;        // enable digital i/o on PF0
     *GPIO_PORTF_PUR_R |= 0x10;        // enable PUR on sw2
@@ -65,7 +56,7 @@ void debounce(uint8_t* input, uint8_t* flag) {
 }
 
 void rotate(uint8_t input, uint8_t* cState) {
-    for (int i = 0; i < 60; i++) { //change 60 to steps in 72 degrees
+    for (int i = 0; i < (64 * 32 / 5); i++) { // There are 64 * 32 steps per rotation
         *cState = stepOnce(input, *cState);
         delayT(1000);
     }
@@ -83,9 +74,9 @@ int main() {
     *flag = 0x01;
 
     while(1) {
-        debounce(input, flag);
-        delayT(10000);
-        rotate(*input, cState);
+        debounce(input, flag);  // update input
+        delayT(10000);          // wait
+        rotate(*input, cState); // rotate 1/5 rotation
     }
 
     return 0;
