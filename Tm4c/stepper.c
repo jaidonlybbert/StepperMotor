@@ -12,9 +12,9 @@ uint32_t *GPIO_PORTF_PUR_R = (uint32_t*) (0x40025000 + 0x510);
 
 void PortA_Init(void){ 
   volatile uint32_t delay;
-  *SYSCTL_RCGCGPIO_R |= 0x01;          // activate Port A
-  delay = SYSCTL_RCGCGPIO_R;          // allow time for clock to stabilize
-  *GPIO_PORTA_DIR_R |= 0x3C;       // make PA5-2 out
+  *SYSCTL_RCGCGPIO_R |= 0x01;       // activate Port A
+  delay = SYSCTL_RCGCGPIO_R;        // allow time for clock to stabilize
+  *GPIO_PORTA_DIR_R |= 0x3C;        // make PA5-2 out
   *GPIO_PORTA_DEN_R |= 0x3C;        // enable digital I/O on PE1-0
 }
 
@@ -24,7 +24,7 @@ void PortF_Init(void) {
     delay = SYSCTL_RCGCGPIO_R;        // allow time for clock to stabilize
     *GPIO_PORTF_DIR_R &= ~0x10;       // make PF4 in
     *GPIO_PORTF_DEN_R |= 0x10;        // enable digital i/o on PF0
-    *GPIO_PORTF_PUR_R |= 0x10;       // enable PUR on sw2
+    *GPIO_PORTF_PUR_R |= 0x10;        // enable PUR on sw2
 }
 
 struct State {
