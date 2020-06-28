@@ -35,7 +35,7 @@ struct State {
 
 typedef const struct State State_t;
 
-State_t Fsm[4] = {
+State_t stepFsm[4] = {
     {0, 0x04, {1, 3} },
     {1, 0x08, {2, 0} },
     {2, 0x10, {3, 1} },
@@ -47,8 +47,8 @@ void delayT(int maxCount) {
 }
 
 uint8_t stepOnce(uint8_t direction, uint8_t cState) {
-    cState = Fsm[cState].next[direction];
-    *GPIO_PORTA_DATA_R = Fsm[cState].out;
+    cState = stepFsm[cState].next[direction];
+    *GPIO_PORTA_DATA_R = stepFsm[cState].out;
     return cState;
 }
 
@@ -64,21 +64,28 @@ void debounce(uint8_t* input, uint8_t* flag) {
     }
 }
 
+void rotate(uint8_t input, uint8_t* cState) {
+    for (int i = 0; i < 60; i++) { //change 60 to steps in 72 degrees
+        *cState = stepOnce(input, *cState);
+        delayT(1000);
+    }
+}
+
 int main() {
     PortA_Init();
     PortF_Init();
 
-    uint8_t cState = 0;
+    uint8_t* cState;
+    *cState = 0;
     uint8_t* input;
     *input = 0x01;
     uint8_t* flag;
     *flag = 0x01;
 
     while(1) {
-        // Debounce
         debounce(input, flag);
         delayT(10000);
-        cState = stepOnce(input, cState);
+        rotate(*input, cState);
     }
 
     return 0;
