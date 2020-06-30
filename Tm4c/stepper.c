@@ -17,7 +17,7 @@ void PortF_Init(void) {               // initialize sw2
     *GPIO_PORTF_PUR_R |= 0x10;        // enable PUR on sw2
 }
 
-// Define the states in the FSM
+// Define the states in the 28byJ FSM
 State_t stepFsm[4] = {
     {0, 0x04, {1, 3} },
     {1, 0x08, {2, 0} },
@@ -69,36 +69,28 @@ void debounce(uint8_t* input, uint8_t* flag) {
     }
 }
 
-// Steps a number of times uninterrupted
-// No stop condition
-void rotate(uint8_t input, uint8_t* cState) {
-    for (int i = 0; i < (64 * 32 / 5); i++) { // There are 64 * 32 steps per rotation
-        stepOnce(input, cState);
-        delayT(10000);
-    }
-}
-
 
 // Debounce limit switch
-uint8_t limitDebounce(uint8_t* data) {
-    if( ((*data)&0x01) == 0x00) {
-        delayT(1000);
-        if( ((*data)&0x01) == 0x00) {
-            return 0x00;
+uint8_t limitDebounce(uint32_t* limitSw) {
+    if( (((*limitSw&0x10)>>4)) == 0x00) {       // If switch activated
+        delayT(1000);                         // Wait for bouncing to stop
+        if( (((*limitSw&0x10)>>4)) == 0x00) {   // If switch still activated
+            return 0x00;                      // Report switch activated
         }
-        return 0x01;
+        return 0x01;                          // Otherwise: switch is unactivated
     } else {
         return 0x01;
     }
 }
 
 // Homing Mode
-void homingMode(uint8_t* data, uint8_t* mode, uint8_t* cState) {// data = direction & limitSw
-    while(*mode == 0 && limitDebounce(data) == 0x01) {          // while the mode is unchanged and the switch is unpressed
-        stepOnce(*data>>4, cState);                             // continuously step in the specified direction
+void homingMode(uint32_t* data, volatile uint8_t* mode, uint8_t* cState) { // data = 0000 00 & direction & limitSw
+    while(*mode == 0 && (limitDebounce(data)) == 0x01) {                    // while the mode is unchanged and the switch is unpressed
+        stepOnce((*data&0x02)>>1, cState);                                // continuously step in the specified direction
+        delayT(10000);
     }
 
-    cStep = 0;                                                   // reset motor address
+    cStep = 0;                                                            // reset current step #
 }
 
 // Absolute Positioning Mode 1
@@ -164,18 +156,41 @@ void relPosMode(uint8_t direction, uint8_t* cState, uint8_t numSteps) {
     }
 }
 
+/*
+Important notes:
+    - Everything here is built around the 28byj-48 motor, but switching to the nema-17 should just
+      be a matter of adding a new stepper FSM data type
+
+    - Currently the only real input is Sw1 on the launchpad, this is mapped to Pf4
+
+    - An 8 bit input is necessary to specify a step number (0-199) for absolute positioning with
+      the NEMA-17, this probably should be done serially, but for now, a 4-bit parallel bus
+      could work to give us 16 positions across the range of motion, or we could use an 8-bit parallel bus
+      which is a lot of pins but ¯\_(ツ)_/¯
+*/
 int main() {
     PortA_Init(); // initialize stepper data output port
     PortF_Init(); // initialize switch input port
 
     uint8_t cState = 0x00; // track current motor state
-    uint8_t input = 0x01;  // store input signal (sw)
+    uint8_t input = 0x01;  // placeholder input signal
+    uint8_t mode = 2;      
 
-    while(1) {
-        input = *GPIO_PORTF_DATA_R>>4;
-        delayT(10000);
-        stepOnce(input, &cState);
+    switch (mode) {
+        case 0 : // Homing mode
+            homingMode(GPIO_PORTF_DATA_R, &mode, &cState);
+            break;
+        case 1 : // Absolute positioning mode full range
+            input = 150;
+            absPosMode_360(150, &cState);
+            break;
+        case 2 : // Absolute positioning mode limited range
+            absPosMode_Slice(120, &cState);
+            break;
+        case 3 : // Relative positioning mode
+            relPosMode(input, &cState, 200);
+            break;
     }
-
+    
     return 0;
 }
